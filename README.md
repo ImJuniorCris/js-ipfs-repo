@@ -1,63 +1,130 @@
-# ipfs-repo <!-- omit in toc -->
+# JsIPFSRepo
 
-[![ipfs.tech](https://img.shields.io/badge/project-IPFS-blue.svg?style=flat-square)](https://ipfs.tech)
-[![Discuss](https://img.shields.io/discourse/https/discuss.ipfs.tech/posts.svg?style=flat-square)](https://discuss.ipfs.tech)
-[![codecov](https://img.shields.io/codecov/c/github/ipfs/js-ipfs-repo.svg?style=flat-square)](https://codecov.io/gh/ipfs/js-ipfs-repo)
-[![CI](https://img.shields.io/github/workflow/status/ipfs/js-ipfs-repo/test%20&%20maybe%20release/master?style=flat-square)](https://github.com/ipfs/js-ipfs-repo/actions/workflows/js-test-and-release.yml)
+> The repo and migration tools used by IPFS, providing a storage backend and API for managing block, datastore, keys, and config data.
 
-> The repo and migration tools used by IPFS
+## About
 
-## Table of contents <!-- omit in toc -->
+A JavaScript implementation of the IPFS Repo, providing a flexible storage backend and migration tools for IPFS nodes.
 
-- [Structure](#structure)
-- [Development](#development)
-  - [Publishing new versions](#publishing-new-versions)
-  - [Using prerelease versions](#using-prerelease-versions)
-- [License](#license)
+## Table of Contents
+
+- [Install](#install)
+- [Background](#background)
+- [Usage](#usage)
+- [API](#api)
+  - [Setup](#setup)
+  - [Repos](#repos)
+  - [Blocks](#blocks)
+  - [Datastore](#datastore)
+  - [Config](#config)
+  - [Version](#version)
+  - [API Addr](#api-addr)
+  - [Status](#status)
+  - [Lock](#lock)
+- [Notes](#notes)
+  - [Migrations](#migrations)
 - [Contribute](#contribute)
+- [License](#license)
 
-## Structure
+## Install
 
-- [`/packages/ipfs-repo`](./packages/ipfs-repo) IPFS Repo implementation
-- [`/packages/ipfs-repo-migrations`](./packages/ipfs-repo-migrations) Migration framework for versioning of JS IPFS Repo
+```bash
+npm install ipfs-repo
+```
 
-## Development
+## Background
 
-1. Clone this repo
-2. Run `npm install`
+This repository implements the IPFS Repo architecture, providing a modular and pluggable interface for storing blocks, keys, configuration, and metadata. It supports multiple backend datastores, with default options for Node.js and browser environments.
 
-This will install [lerna](https://www.npmjs.com/package/lerna) and bootstrap the various packages, deduping and hoisting dependencies into the root folder.
+## Usage
 
-If later you wish to remove all the `node_modules`/`dist` folders and start again, run `npm run reset && npm install` from the root.
+```js
+import { createRepo } from 'ipfs-repo'
 
-See the scripts section of the root [`package.json`](./package.json) for more commands.
+const repo = createRepo('/tmp/ipfs-repo')
 
-### Publishing new versions
+await repo.init({ cool: 'config' })
+await repo.open()
+console.log('repo is ready')
+```
 
-1. Ensure you have a `GH_TOKEN` env var containing a GitHub [Personal Access Token](https://github.com/settings/tokens) with `public_repo` permissions
-2. From the root of this repo run `npm run release` and follow the on screen prompts.  It will use [conventional commits](https://www.conventionalcommits.org) to work out the new package version
+This creates the following structure (on disk or in-memory):
 
-### Using prerelease versions
+```
+├── blocks
+│   ├── SHARDING
+│   └── _README
+├── config
+├── datastore
+├── keys
+└── version
+```
 
-Any changed packages from each successful build of master are published to npm as canary builds under the npm tag `next`.
+## API
 
-Canary builds only consider changes to packages in the last built commit so changes to the root config files should not result in new prereleases being published to npm.
+### Setup
+
+- `createRepo(path[, options])` – Creates an IPFS Repo.
+- `Promise repo.init()` – Initializes the repo folder structure.
+- `Promise repo.open()` – Locks the repo for usage.
+- `Promise repo.close()` – Unlocks the repo.
+- `Promise<boolean> repo.exists()` – Checks if the repo exists.
+- `Promise<boolean> repo.isInitialized()` – Checks if the repo is initialized.
+
+### Repos
+
+- `Promise repo.put(key, value:Uint8Array)` – Store a value.
+- `Promise<Uint8Array> repo.get(key)` – Retrieve a value.
+
+### Blocks
+
+- `Promise<Block> repo.blocks.put(block:Block)`
+- `AsyncIterator<Block> repo.blocks.putMany(source:AsyncIterable<Block>)`
+- `Promise<Block> repo.blocks.get(cid:CID)`
+- `AsyncIterable<Block> repo.blocks.getMany(source:AsyncIterable<CID>)`
+- `Promise<boolean> repo.blocks.has(cid:CID)`
+- `Promise<boolean> repo.blocks.delete(cid:CID)`
+- `AsyncIterator<Block|CID> repo.blocks.query(query)`
+
+### Datastore
+
+- `repo.datastore` – Implements the `interface-datastore` API.
+
+### Config
+
+- `Promise repo.config.set(key:String, value:Object)`
+- `Promise repo.config.replace(value:Object)`
+- `Promise<?> repo.config.get(key:String)`
+- `Promise<Object> repo.config.getAll()`
+- `Promise<boolean> repo.config.exists()`
+
+### Version
+
+- `Promise<Number> repo.version.get()`
+- `Promise repo.version.set(version:Number)`
+
+### API Addr
+
+- `Promise<String> repo.apiAddr.get()`
+- `Promise repo.apiAddr.set(value)`
+
+### Status
+
+- `Promise<Object> repo.stat()`
+
+### Lock
+
+IPFS Repo supports memory and fs locks. You may also provide a custom lock implementation.
+
+```js
+import { FSLock } from 'ipfs-repo/locks/fs'      // Default in Node.js
+import { MemoryLock } from 'ipfs-repo/locks/memory' // Default in browser
+```
+
+#### Migrations
+
+When repo migrations are needed, ensure to propagate changes as needed. For browser-based tools, provide a way to trigger migrations manually, since CLI access may not be available.
 
 ## License
 
-Licensed under either of
-
-- Apache 2.0, ([LICENSE-APACHE](LICENSE-APACHE) / <http://www.apache.org/licenses/LICENSE-2.0>)
-- MIT ([LICENSE-MIT](LICENSE-MIT) / <http://opensource.org/licenses/MIT>)
-
-## Contribute
-
-Contributions welcome! Please check out [the issues](https://github.com/ipfs/js-ipfs-repo/issues).
-
-Also see our [contributing document](https://github.com/ipfs/community/blob/master/CONTRIBUTING_JS.md) for more information on how we work, and about contributing in general.
-
-Please be aware that all interactions related to this repo are subject to the IPFS [Code of Conduct](https://github.com/ipfs/community/blob/master/code-of-conduct.md).
-
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
-
-[![](https://cdn.rawgit.com/jbenet/contribute-ipfs-gif/master/img/contribute.gif)](https://github.com/ipfs/community/blob/master/CONTRIBUTING.md)
+Dual licensed under Apache-2.0 and MIT.
